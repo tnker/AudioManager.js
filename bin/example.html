@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+</head>
+<body>
+    <script src="./audioManager.min.js"></script>
+    <script>
+        var manager;
+
+        window.onload = function() {
+            manager = (new AudioManager({
+                useMicrophone   : true,
+                onEnterFrame    : function() {
+                    console.log(Utils.sum(this.analyser.mic.getByteFrequencyData()));
+                }
+            })).init();
+        };
+    </script>
+</body>
+</html>
