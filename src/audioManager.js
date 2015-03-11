@@ -12,6 +12,11 @@
         navigator.msGetUserMedia
     );
 
+    global.AudioContext = (
+        global.AudioContext ||
+        global.webkitAudioContext
+    );
+
     // {{{ classes
 
     /**
