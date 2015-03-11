@@ -17,6 +17,13 @@
         global.webkitAudioContext
     );
 
+    global.requestAnimationFrame = (
+        global.requestAnimationFrame        ||
+        global.mozRequestAnimationFrame     ||
+        global.webkitRequestAnimationFrame  ||
+        global.msRequestAnimationFrame
+    );
+
     // {{{ classes
 
     /**
@@ -131,6 +138,11 @@
      */
     AudioManager.prototype.stop = AudioManager_stop;
     /**
+     * 再生一時停止処理
+     * @param {string} key
+     */
+    AudioManager.prototype.pause = AudioManager_pause;
+    /**
      * 再生状態取得処理
      * @param {string} key
      * @return {boolean}
@@ -217,6 +229,10 @@
         } else {
             if (typeof me.onInit === 'function') {
                 me.onInit();
+            }
+            if (me.autoLooop) {
+                me.isReady = true;
+                me.startLoop();
             }
         }
 
@@ -357,6 +373,7 @@
     }
     /**
      *
+     * @private
      * @param {string} name
      * @param {number} idx
      * @param {boolean} loop
@@ -365,14 +382,25 @@
     function AudioManager_createSource(name, idx, loop, sound) {
         var me  = this,
             src = me.context.createBufferSource();
+
         src.buffer = me.buffers.bufferList[idx];
         src.loop = loop;
+        // fallback
+        src.start = src.start || src.noteOn;
+        src.stop  = src.stop  || src.noteOff;
         // 状態管理
-        me.state[name] = {
-            index   : idx,
-            sound   : sound,
-            playing : false
-        };
+        if (me.state[name] === undefined) {
+            me.state[name] = {
+                index       : idx,
+                isReset     : true,
+                sound       : sound,
+                playing     : false,
+                startTime   : 0,
+                pauseTime   : 0,
+                retryTime   : 0,
+                offsetTime  : 0
+            };
+        }
         return src;
     }
     /**
@@ -412,7 +440,12 @@
      * @param {string} key
      */
     function AudioManager_play(key) {
-        var me = this,
+        var me          = this,
+            startTime   = 0,
+            pauseTime   = 0,
+            retryTime   = 0,
+            playTime    = 0,
+            offsetTime  = 0,
             i, l, s;
 
         if (me.sources[key]) {
@@ -424,7 +457,28 @@
             if (s) {
                 me.sources[key].connect(me.context.destination);
             }
-            me.sources[key].start(0);
+            if (me.state[key].isReset) {
+                startTime = me.context.currentTime;
+                retryTime = startTime;
+                pauseTime = 0;
+                offsetTime= 0;
+                me.state[key].startTime = startTime;
+                me.state[key].retryTime = retryTime;
+                me.state[key].pauseTime = pauseTime;
+                me.state[key].offsetTime= offsetTime;
+                me.state[key].isReset = false;
+            } else {
+                startTime  = me.state[key].startTime;
+                retryTime  = me.context.currentTime;
+                pauseTime  = me.state[key].pauseTime;
+                offsetTime = me.state[key].offsetTime;
+                offsetTime += retryTime - pauseTime;
+                me.state[key].retryTime = retryTime;
+                me.state[key].pauseTime = pauseTime;
+                me.state[key].offsetTime= offsetTime;
+            }
+            playTime = retryTime - startTime - offsetTime;
+            me.sources[key].start(0, playTime);
             me.state[key].playing = true;
         } else {
             console.warn('指定したKEYの音源は存在しません');
@@ -439,6 +493,22 @@
 
         if (me.sources[key]) {
             me.sources[key].stop(0);
+            me.state[key].playing = false;
+            me.state[key].isReset = true;
+        } else {
+            console.warn('指定したKEYの音源は存在しません');
+        }
+    }
+    /**
+     * 再生一時停止処理
+     * @param {string} key
+     */
+    function AudioManager_pause(key) {
+        var me = this;
+
+        if (me.sources[key]) {
+            me.sources[key].stop(0);
+            me.state[key].pauseTime = me.context.currentTime;
             me.state[key].playing = false;
         } else {
             console.warn('指定したKEYの音源は存在しません');
