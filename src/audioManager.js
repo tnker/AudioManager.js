@@ -65,14 +65,14 @@
         this.sources            = {};
         this.analyser           = {};
         this.state              = {};
-        this.fps                = c.fps || 60;
-        this.autoLooop          = !!c.autoLoop;
-        this.ffSize             = c.ffSize || 2048;
+        this.fps                = c.fps     || 60;
+        this.ffSize             = c.ffSize  || 2048;
         this.onEnterFrame       = c.onEnterFrame     || emptyFn;
         this.onInit             = c.onInit           || emptyFn;
         this.onMicInitSuccess   = c.onMicInitSuccess || emptyFn;
         this.onMicInitFaild     = c.onMicInitFaild   || emptyFn;
         this.onLoaded           = c.onLoaded         || emptyFn;
+        this.autoLooop          = !!c.autoLoop;
         this.useMicrophone      = !!c.useMicrophone;
         this.isLoop             = false;
         this.isReady            = false;
@@ -111,10 +111,6 @@
      * @param {string[]}
      */
     AudioManager.prototype.load = AudioManager_load;
-    /**
-     * リソース読み込み完了時コールバック処理
-     */
-    AudioManager.prototype.loaded = AudioManager_loaded;
     /**
      * ループ開始処理
      */
@@ -319,13 +315,14 @@
             me.context,
             ls,
             function success() {
-                me.loaded.apply(me, arguments);
+                AudioManager_loaded.apply(me, arguments);
             }
         );
         me.buffers.load();
     }
     /**
-     *
+     * リソース読み込み完了時コールバック処理
+     * @private
      */
     function AudioManager_loaded() {
         var me  = this,
