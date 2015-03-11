@@ -65,7 +65,7 @@
         this.sources            = {};
         this.analyser           = {};
         this.state              = {};
-        this.fps                = c.fps || 24;
+        this.fps                = c.fps || 60;
         this.autoLooop          = !!c.autoLoop;
         this.ffSize             = c.ffSize || 2048;
         this.onEnterFrame       = c.onEnterFrame     || emptyFn;
@@ -430,9 +430,15 @@
             if (typeof me.onEnterFrame === 'function') {
                 me.onEnterFrame();
             }
-            setTimeout(function() {
-                me.enterFrame();
-            }, 1000 / me.fps);
+            if (me.fps === 60) {
+                requestAnimationFrame(function() {
+                    me.enterFrame();
+                });
+            } else {
+                setTimeout(function() {
+                    me.enterFrame();
+                }, 1000 / me.fps);
+            }
         }
     }
     /**
