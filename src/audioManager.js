@@ -1,6 +1,8 @@
 (function(global) {
     'use strict';
 
+    // {{{ initialize variables
+
     var emptyFn = function(){},
         support;
 
@@ -11,6 +13,15 @@
         navigator.mozGetUserMedia    ||
         navigator.msGetUserMedia
     );
+
+    // }}}
+    // {{{ const variables
+
+    var MAX_VOLUME = 1,
+        MIN_VOLUME = 0;
+
+    // }}}
+    // {{{ audio api fallback
 
     global.AudioContext = (
         global.AudioContext ||
@@ -24,6 +35,7 @@
         global.msRequestAnimationFrame
     );
 
+    // }}}
     // {{{ classes
 
     /**
@@ -151,6 +163,12 @@
      * @param {number} val
      */
     AudioManager.prototype.setPitch = AudioManager_setPitch;
+    /**
+     * 音量変更処理
+     * @param {string} key
+     * @param {number} val
+     */
+    AudioManager.prototype.setVolume = AudioManager_setVolume;
     /**
      * 配列SUM処理
      * @param {number[]}
@@ -305,7 +323,8 @@
                         name    : ks[i],
                         loop    : ls[i].loop === undefined ? true : ls[i].loop,
                         sound   : ls[i].sound === undefined ? true : ls[i].loop,
-                        ffSize  : ls[i].ffSize
+                        ffSize  : ls[i].ffSize,
+                        gain    : ls[i].gain
                     };
                     ls[i] = ls[i].path;
                 } else {
@@ -353,16 +372,11 @@
                 };
             }
 
+            me.sources[n]  = AudioManager__createSource.apply(me,[o, i]);
             me.analyser[n] = AudioManager__createAnalyser.apply(me, [o]);
 
             if (o.gain) {
                 me.gains[n] = AudioManager__createGain.apply(me, [o]);
-            }
-
-            me.sources[n]  = AudioManager__createSource.apply(me,[o, i]);
-
-            if (s) {
-                me.sources[n].connect(me.context.destination);
             }
 
             if (!(me.sources instanceof Array)) {
@@ -421,17 +435,16 @@
         var me = this,
             analyser;
         if (me.analyser[info.name] === undefined) {
-           analyser         = me.context.createAnalyser();
-           analyser.ffSize  = info.ffSize || me.ffSize;
-           me.sources[info.name].connect(analyser);
-           return {
-               a: analyser,
-               d: new Uint8Array((info.ffSize || me.ffSize) / 2),
-               getByteFrequencyData: function() {
-                   this.a.getByteFrequencyData(this.d);
-                   return this.d;
-               }
-           };
+            analyser         = me.context.createAnalyser();
+            analyser.ffSize  = info.ffSize || me.ffSize;
+            return {
+                a: analyser,
+                d: new Uint8Array((info.ffSize || me.ffSize) / 2),
+                getByteFrequencyData: function() {
+                    this.a.getByteFrequencyData(this.d);
+                    return this.d;
+                }
+            };
         } else {
             return me.analyser[info.name];
         }
@@ -446,7 +459,7 @@
             gain;
         if (me.gains[info.name] === undefined) {
             gain = me.context.createGain();
-            me.gains[info.name] = gain;
+            return gain;
         } else {
             return me.gains[info.name];
         }
@@ -490,6 +503,15 @@
         }
     }//}}}
     /**
+     *
+     * @private
+     * @param {string} key
+     */
+    function AudioManager__connectNode(key) {//{{{
+        var me = this;
+        // TODO
+    }//}}}
+    /**
      * 再生開始処理
      * @param {string} key
      */
@@ -509,7 +531,13 @@
             me.sources[key] = AudioManager__createSource.apply(me,[key,i,l,s]);
             me.sources[key].playbackRate.value = me.state[key].pitch;
             me.sources[key].connect(me.analyser[key].a);
+            // {{{ TODO: debug code
+            me.sources[key].connect(me.gains[key]);
+            // }}}
             if (s) {
+                // {{{ TODO: debug code
+                me.gains[key].connect(me.context.destination);
+                // }}}
                 me.sources[key].connect(me.context.destination);
             }
             if (me.state[key].isReset) {
@@ -595,7 +623,39 @@
         if (me.sources[key]) {
             me.sources[key].playbackRate.value = val;
             me.state[key].pitch = val;
+        } else {
+            console.warn('指定したKEYの音源は存在しません');
         }
+    }//}}}
+    /**
+     * 音量変更処理
+     * @param {string} key
+     * @param {number} val
+     */
+    function AudioManager_setVolume(key, val) {//{{{
+        var me = this;
+
+        if (me.gains[key]) {
+            // 閾値チェック
+            if (MAX_VOLUME < val) {
+                val = MAX_VOLUME;
+            }
+            if (MIN_VOLUME > val) {
+                val = MIN_VOLUME;
+            }
+            me.gains[key].gain.value = val;
+        } else {
+            console.warn('音源の音量を変更する場合はGainが必要です');
+        }
+    }//}}}
+    /**
+     * Audio Element バインド
+     * @param {string} key
+     * @param {element} el
+     */
+    function AudioManager_bindEl(key, el) {//{{{
+        var me = this;
+        // TODO
     }//}}}
     /**
      *
