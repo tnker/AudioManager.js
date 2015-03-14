@@ -75,7 +75,7 @@
 
         this.context            = null;
         this.sources            = {};
-        this.analyser           = {};
+        this.analysers          = {};
         this.gains              = {};
         this.state              = {};
         this.fps                = c.fps     || 60;
@@ -269,7 +269,7 @@
         an.ffSize = me.ffSize;
 
         me.sources.mic = me.context.createMediaStreamSource(s);
-        me.analyser.mic= {
+        me.analysers.mic= {
             a: an,
             d: new Uint8Array(me.ffSize/2),
             getByteFrequencyData: function() {
@@ -314,7 +314,7 @@
 
         if (!(sources instanceof Array)) {
             me.sources  = {};
-            me.analyser = {};
+            me.analysers= {};
             ls = ut.values(sources);
             ks = Object.keys(sources);
             for (var i = 0; i < ks.length; i++) {
@@ -334,7 +334,7 @@
         } else {
             ls = sources;
             me.sources  = [];
-            me.analyser = [];
+            me.analysers= [];
         }
 
         me.buffers = new BufferLoader(
@@ -372,8 +372,8 @@
                 };
             }
 
-            me.sources[n]  = AudioManager__createSource.apply(me,[o, i]);
-            me.analyser[n] = AudioManager__createAnalyser.apply(me, [o]);
+            me.sources[n]   = AudioManager__createSource.apply(me,[o, i]);
+            me.analysers[n] = AudioManager__createAnalyser.apply(me, [o]);
 
             if (o.gain) {
                 me.gains[n] = AudioManager__createGain.apply(me, [o]);
@@ -421,9 +421,12 @@
                 pauseTime   : 0,
                 retryTime   : 0,
                 offsetTime  : 0,
-                pitch       : 1
+                pitch       : 1,
+                gain        : info.gain
             };
         }
+        // 再生ピッチ設定
+        src.playbackRate.value = me.state[info.name].pitch;
         return src;
     }//}}}
     /**
@@ -434,7 +437,7 @@
     function AudioManager__createAnalyser(info) {//{{{
         var me = this,
             analyser;
-        if (me.analyser[info.name] === undefined) {
+        if (me.analysers[info.name] === undefined) {
             analyser         = me.context.createAnalyser();
             analyser.ffSize  = info.ffSize || me.ffSize;
             return {
@@ -446,7 +449,7 @@
                 }
             };
         } else {
-            return me.analyser[info.name];
+            return me.analysers[info.name];
         }
     }//}}}
     /**
@@ -457,7 +460,7 @@
     function AudioManager__createGain(info) {//{{{
         var me = this,
             gain;
-        if (me.gains[info.name] === undefined) {
+        if (me.gains[info.gain] === undefined) {
             gain = me.context.createGain();
             return gain;
         } else {
@@ -503,13 +506,32 @@
         }
     }//}}}
     /**
-     *
+     * 各ノードの接続処理
      * @private
      * @param {string} key
      */
     function AudioManager__connectNode(key) {//{{{
-        var me = this;
-        // TODO
+        var me      = this,
+            state   = me.state[key] || {},
+            source  = me.sources[key],
+            analyser= me.analysers[key],
+            gain    = me.gains[state.gain],
+            target;
+        // GainNodeが存在する場合はSourceと
+        // GainNodeを接続する
+        if (gain) {
+            source.connect(analyser.a);
+            source.connect(gain);
+            target = gain;
+        } else {
+            source.connect(analyser.a);
+            target = source;
+        }
+        // サウンドの設定が有効担っている場合は
+        // 対象ノードとスピーカーを接続する
+        if (state.sound) {
+            target.connect(me.context.destination);
+        }
     }//}}}
     /**
      * 再生開始処理
@@ -525,21 +547,14 @@
             i, l, s;
 
         if (me.sources[key]) {
+            // SourceNodeを再度インスタンスの生成を行う
             i = me.state[key].index;
             l = me.sources[key].loop;
             s = me.state[key].sound;
             me.sources[key] = AudioManager__createSource.apply(me,[key,i,l,s]);
-            me.sources[key].playbackRate.value = me.state[key].pitch;
-            me.sources[key].connect(me.analyser[key].a);
-            // {{{ TODO: debug code
-            me.sources[key].connect(me.gains[key]);
-            // }}}
-            if (s) {
-                // {{{ TODO: debug code
-                me.gains[key].connect(me.context.destination);
-                // }}}
-                me.sources[key].connect(me.context.destination);
-            }
+            // 生成済みの各ノード接続処理
+            AudioManager__connectNode.apply(me, [key]);
+
             if (me.state[key].isReset) {
                 startTime = me.context.currentTime;
                 retryTime = startTime;
