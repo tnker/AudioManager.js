@@ -4,7 +4,15 @@
     // {{{ initialize variables
 
     var emptyFn = function(){},
+        enumerables,
         support;
+
+    enumerables = [
+        'valueOf',
+        'toLocaleString',
+        'toString',
+        'constructor'
+    ];
 
     support = !!(
         navigator.getUserMedia =
@@ -186,6 +194,21 @@
      * @return {string[]}
      */
     Utils.prototype.values = Utils_values;
+    /**
+     * オブジェクトの取り回し良くするための処理
+     * @param {object} object
+     * @param {object} config
+     * @param {object} defaults
+     * @return {object}
+     */
+    Utils.prototype.apply = Utils_apply;
+    /**
+     * オブジェクトの取り回し良くするための処理
+     * @param {object} object
+     * @param {object} config
+     * @return {object}
+     */
+    Utils.prototype.applyIf = Utils_applyIf;
 
     // }}}
     // {{{ implementations
@@ -327,13 +350,11 @@
             ks = Object.keys(sources);
             for (var i = 0; i < ks.length; i++) {
                 if (typeof ls[i] === 'object') {
-                    me.sources[i] = {
+                    me.sources[i] = ut.applyIf(ls[i], {
                         name    : ks[i],
-                        loop    : ls[i].loop === undefined ? true : ls[i].loop,
-                        sound   : ls[i].sound === undefined ? true : ls[i].loop,
-                        ffSize  : ls[i].ffSize,
-                        gain    : ls[i].gain
-                    };
+                        loop    : true,
+                        sound   : true
+                    });
                     ls[i] = ls[i].path;
                 } else {
                     me.sources[i] = ks[i];
@@ -383,7 +404,7 @@
             me.sources[n]   = AudioManager__createSource.apply(me,[o, i]);
             me.analysers[n] = AudioManager__createAnalyser.apply(me, [o]);
 
-            if (o.gain) {
+            if (o.gain || typeof o.volume === 'number') {
                 me.gains[n] = AudioManager__createGain.apply(me, [o]);
             }
 
@@ -406,6 +427,7 @@
      */
     function AudioManager__createSource(info, index) {//{{{
         var me  = this,
+            ut  = global.Utils,
             src = me.context.createBufferSource();
 
         src.buffer = me.buffers.bufferList[index];
@@ -419,21 +441,21 @@
             src.stop  = src.stop  || src.noteOff;
         }
         // 状態管理
-        if (me.state[info.name] === undefined) {
-            me.state[info.name] = {
+        me.state[info.name] = ut.applyIf(
+            me.state[info.name] ||
+            info                ||
+            {}, {
                 index       : index,
                 isReset     : true,
-                sound       : info.sound,
                 playing     : false,
                 startTime   : 0,
                 pauseTime   : 0,
                 retryTime   : 0,
                 offsetTime  : 0,
                 pitch       : 1,
-                gain        : info.gain,
-                volume      : info.volume
-            };
-        }
+                volume      : 0.5
+            }
+        );
         // 再生ピッチ設定
         src.playbackRate.value = me.state[info.name].pitch;
         return src;
@@ -552,15 +574,14 @@
             pauseTime   = 0,
             retryTime   = 0,
             playTime    = 0,
-            offsetTime  = 0,
-            i, l, s;
+            offsetTime  = 0;
 
         if (me.sources[key]) {
             // SourceNodeを再度インスタンスの生成を行う
-            i = me.state[key].index;
-            l = me.sources[key].loop;
-            s = me.state[key].sound;
-            me.sources[key] = AudioManager__createSource.apply(me,[key,i,l,s]);
+            me.sources[key] = AudioManager__createSource.apply(me, [
+                me.state[key],
+                me.state[key].index
+            ]);
             // 生成済みの各ノード接続処理
             AudioManager__connectNode.apply(me, [key]);
 
@@ -585,6 +606,10 @@
                 me.state[key].offsetTime= offsetTime;
             }
             playTime = retryTime - startTime - offsetTime;
+            AudioManager_setVolume.apply(me, [
+                key,
+                me.state[key].volume
+            ]);
             me.sources[key].start(0, playTime);
             me.state[key].playing = true;
         } else {
@@ -711,6 +736,50 @@
             vals[i] = o[keys[i]];
         }
         return vals;
+    }//}}}
+    /**
+     * オブジェクトの取り回し良くするための処理
+     * @param {object} object
+     * @param {object} config
+     * @param {object} defaults
+     * @return {object}
+     */
+    function Utils_apply(object, config, defaults) {//{{{
+        if (defaults) {
+            Ext.apply(object, defaults);
+        }
+        if (object && config && typeof config === 'object') {
+            var i, j, k;
+            for (i in config) {
+                object[i] = config[i];
+            }
+            if (enumerables) {
+                for (j = enumerables.length; j--;) {
+                    k = enumerables[j];
+                    if (config.hasOwnProperty(k)) {
+                        object[k] = config[k];
+                    }
+                }
+            }
+        }
+        return object;
+    }//}}}
+    /**
+     * オブジェクトの取り回し良くするための処理
+     * @param {object} object
+     * @param {object} config
+     * @return {object}
+     */
+    function Utils_applyIf(object, config) {//{{{
+        var property;
+        if (object) {
+            for (property in config) {
+                if (object[property] === undefined) {
+                    object[property] = config[property];
+                }
+            }
+        }
+        return object;
     }//}}}
 
     // }}}
