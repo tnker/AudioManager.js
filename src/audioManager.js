@@ -85,6 +85,7 @@
         this.sources            = {};
         this.analysers          = {};
         this.gains              = {};
+        this.panners            = {};
         this.state              = {};
         this.fps                = c.fps     || 60;
         this.ffSize             = c.ffSize  || 2048;
@@ -183,6 +184,15 @@
      * @param {string} sel
      */
     AudioManager.prototype.bindEl = AudioManager_bindEl;
+    /**
+     * 音源の再生ポジション設定
+     * 主に立体音響用に利用
+     * @param {string} key
+     * @param {number} x
+     * @param {number} y
+     * @param {number} z
+     */
+    AudioManager.prototype.setPosition = AudioManager_setPosition;
     /**
      * 配列SUM処理
      * @param {number[]}
@@ -381,6 +391,7 @@
      */
     function AudioManager__loaded() {//{{{
         var me  = this,
+            ut  = global.Utils,
             len = me.buffers.bufferList.length;
 
         for (var i = 0; i < len; i++) {
@@ -393,21 +404,25 @@
                 n = o.name;
             } else {
                 n = o;
-                o = {
+                o = ut.appy({}, {
                     name    : n,
                     loop    : true,
-                    sound   : s,
-                    gain    : null
-                };
+                    sound   : s
+                });
             }
 
+            // create audio source
             me.sources[n]   = AudioManager__createSource.apply(me,[o, i]);
+            // create analyser source
             me.analysers[n] = AudioManager__createAnalyser.apply(me, [o]);
-
+            // create gain source
             if (o.gain || typeof o.volume === 'number') {
                 me.gains[n] = AudioManager__createGain.apply(me, [o]);
             }
-
+            // create panner source
+            if (o.panner) {
+                me.panners[n] = AudioManager__createPanner.apply(me, [o]);
+            }
             if (!(me.sources instanceof Array)) {
                 delete me.sources[i];
             }
@@ -491,11 +506,34 @@
     function AudioManager__createGain(info) {//{{{
         var me = this,
             gain;
-        if (me.gains[info.gain] === undefined) {
-            gain = me.context.createGain();
-            return gain;
-        } else {
-            return me.gains[info.gain];
+        if (info.gain) {
+            if (me.gains[info.gain] === undefined) {
+                gain = me.context.createGain();
+                return gain;
+            } else {
+                return me.gains[info.gain];
+            }
+        }
+    }//}}}
+    /**
+     *
+     * @private
+     * @param {object} info
+     */
+    function AudioManager__createPanner(info) {//{{{
+        var me = this,
+            panner;
+        if (info.panner) {
+            if (me.panners[info.panner] === undefined) {
+                panner = me.context.createPanner();
+                // default setting
+                panner.coneOuterGain  = 0.1;
+                panner.coneOuterAngle = 180;
+                panner.coneInnerAngle = 0;
+                return panner;
+            } else {
+                return me.panners[info.panner];
+            }
         }
     }//}}}
     /**
@@ -547,19 +585,21 @@
             source  = me.sources[key],
             analyser= me.analysers[key],
             gain    = me.gains[state.gain],
-            target;
-        // GainNodeが存在する場合はSourceと
-        // GainNodeを接続する
+            panner  = me.panners[state.panner],
+            target  = source;
+
+        // Source->Analyser
+        source.connect(analyser.a);
+
+        // GainNodeが存在する場合はSource->Gain
         if (gain) {
-            source.connect(analyser.a);
-            source.connect(gain);
-            target = gain;
-        } else {
-            source.connect(analyser.a);
-            target = source;
+            source.connect(target = gain);
         }
-        // サウンドの設定が有効担っている場合は
-        // 対象ノードとスピーカーを接続する
+        // PannerNodeが存在する場合はSource->Panner
+        if (panner) {
+            source.connect(target = panner);
+        }
+        // soundフラグが立っている場合は出力と接続
         if (state.sound) {
             target.connect(me.context.destination);
         }
@@ -612,6 +652,7 @@
             ]);
             me.sources[key].start(0, playTime);
             me.state[key].playing = true;
+            me.context.listener.setPosition(0, 0, 0);
         } else {
             console.warn('指定したKEYの音源は存在しません');
         }
@@ -710,6 +751,32 @@
         // TODO
         if (sel) {
             src = me.context.createMediaElementSource(el);
+        }
+    }//}}}
+    /**
+     * 音源の再生ポジション設定
+     * 主に立体音響用に利用
+     * @param {string} key
+     * @param {number} x
+     * @param {number} y
+     * @param {number} z
+     */
+    function AudioManager_setPosition(key, x, y, z) {//{{{
+        var me      = this,
+            mul     = 2,
+            panner  = me.panners[key];
+
+        x = x === undefined ? 0 : x;
+        y = y === undefined ? 0 : y;
+        z = z === undefined ? -0.5 : z;
+
+        // TODO
+        if (AudioManager_isPlaying.apply(me, [key])) {
+            if (panner) {
+                panner.setPosition(x*mul, y*mul, z);
+            } else {
+                console.warn('音源の再生位置を変更する場合はPannerが必要です');
+            }
         }
     }//}}}
     /**
