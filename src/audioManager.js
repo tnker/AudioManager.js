@@ -170,6 +170,12 @@
      */
     AudioManager.prototype.setVolume = AudioManager_setVolume;
     /**
+     * Audio Element バインド
+     * @param {string} key
+     * @param {string} sel
+     */
+    AudioManager.prototype.bindEl = AudioManager_bindEl;
+    /**
      * 配列SUM処理
      * @param {number[]}
      */
@@ -260,7 +266,8 @@
         return me;
     }//}}}
     /**
-     *
+     * マイク入力許可後初期化処理
+     * @param s
      */
     function AudioManager_micInitSuccess(s) {//{{{
         var me = this,
@@ -291,7 +298,8 @@
         }
     }//}}}
     /**
-     *
+     * マイク入力拒否後初期化処理
+     * @param e
      */
     function AudioManager_micInitFaild(e) {//{{{
         var me = this;
@@ -422,7 +430,8 @@
                 retryTime   : 0,
                 offsetTime  : 0,
                 pitch       : 1,
-                gain        : info.gain
+                gain        : info.gain,
+                volume      : info.volume
             };
         }
         // 再生ピッチ設定
@@ -464,11 +473,11 @@
             gain = me.context.createGain();
             return gain;
         } else {
-            return me.gains[info.name];
+            return me.gains[info.gain];
         }
     }//}}}
     /**
-     *
+     * 毎フレーム処理開始処理
      */
     function AudioManager_startLoop() {//{{{
         var me = this;
@@ -479,13 +488,13 @@
         }
     }//}}}
     /**
-     *
+     * 毎フレーム処理停止処理
      */
     function AudioManager_stopLoop() {//{{{
         this.isLoop = false;
     }//}}}
     /**
-     *
+     * 毎フレーム処理
      */
     function AudioManager_enterFrame() {//{{{
         var me = this;
@@ -666,11 +675,17 @@
     /**
      * Audio Element バインド
      * @param {string} key
-     * @param {element} el
+     * @param {string} sel
      */
-    function AudioManager_bindEl(key, el) {//{{{
-        var me = this;
+    function AudioManager_bindEl(key, sel) {//{{{
+        var me  = this,
+            el  = document.querySelector(sel),
+            src = null;
+
         // TODO
+        if (sel) {
+            src = me.context.createMediaElementSource(el);
+        }
     }//}}}
     /**
      *
