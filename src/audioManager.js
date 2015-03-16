@@ -533,7 +533,7 @@
             if (me.panners[info.panner] === undefined) {
                 panner = me.context.createPanner();
                 // default setting
-                panner.coneOuterGain  = 0.1;
+                panner.coneOuterGain  = 0.5;
                 panner.coneOuterAngle = 180;
                 panner.coneInnerAngle = 0;
                 return panner;
@@ -769,32 +769,33 @@
      */
     function AudioManager_setPosition(key, x, y, z) {//{{{
         var me      = this,
-            mul     = 2,
+            factor  = 10,
             panner  = me.panners[key];
 
         x = x === undefined ? 0 : x;
         y = y === undefined ? 0 : y;
         z = z === undefined ? -0.5 : z;
 
-        // TODO
         if (AudioManager_isPlaying.apply(me, [key])) {
             if (panner) {
-                panner.setPosition(x*mul, y*mul, z);
+                // 数値にハッキリとした単位がなく、音の差を分かりやすく
+                // するために各値に係数をかけている
+                panner.setPosition(x*factor, y*factor, z);
             } else {
                 console.warn('音源の再生位置を変更する場合はPannerが必要です');
             }
         }
     }//}}}
     /**
-     *
+     * PannerNodeのサウンドコーン角度調整処理
      * @param {string} key
      * @param {number} angle
      */
-    function AudioManager_setOrientation(key, angle) {
+    function AudioManager_setOrientation(key, angle) {//{{{
         var me      = this,
             panner  = me.panners[key];
 
-        // TODO
+        // TODO: 現状毎フレーム処理で角度変更を行うと若干ノイズが混じるので要調整
         if (AudioManager_isPlaying.apply(me, [key])) {
             if (panner) {
                 panner.setOrientation(Math.cos(angle), -Math.sin(angle), 1);
@@ -802,7 +803,7 @@
                 console.warn('音源の再生位置を変更する場合はPannerが必要です');
             }
         }
-    }
+    }//}}}
     /**
      *
      * @param {number[]}
