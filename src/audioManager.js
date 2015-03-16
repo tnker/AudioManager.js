@@ -194,6 +194,12 @@
      */
     AudioManager.prototype.setPosition = AudioManager_setPosition;
     /**
+     * 音源の出力角度
+     * @param {string} key
+     * @param {number} angle
+     */
+    AudioManager.prototype.setOrientation = AudioManager_setOrientation;
+    /**
      * 配列SUM処理
      * @param {number[]}
      */
@@ -267,7 +273,7 @@
         }
     }//}}}
     /**
-     *
+     * 初期化処理
      */
     function AudioManager_init() {//{{{
         var me = this;
@@ -344,7 +350,7 @@
         }
     }//}}}
     /**
-     *
+     * 音源ロード処理
      * @param {string[]|object}
      */
     function AudioManager_load(sources) {//{{{
@@ -404,7 +410,7 @@
                 n = o.name;
             } else {
                 n = o;
-                o = ut.appy({}, {
+                o = ut.apply({}, {
                     name    : n,
                     loop    : true,
                     sound   : s
@@ -779,6 +785,24 @@
             }
         }
     }//}}}
+    /**
+     *
+     * @param {string} key
+     * @param {number} angle
+     */
+    function AudioManager_setOrientation(key, angle) {
+        var me      = this,
+            panner  = me.panners[key];
+
+        // TODO
+        if (AudioManager_isPlaying.apply(me, [key])) {
+            if (panner) {
+                panner.setOrientation(Math.cos(angle), -Math.sin(angle), 1);
+            } else {
+                console.warn('音源の再生位置を変更する場合はPannerが必要です');
+            }
+        }
+    }
     /**
      *
      * @param {number[]}
