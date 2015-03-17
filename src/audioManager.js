@@ -47,7 +47,8 @@
     // {{{ classes
 
     /**
-     *
+     * 他の余計なリソース包むの面倒なので自前で
+     * 用意できるユーティリティ系の処理はUtilsに実装
      * @class utils
      */
     function Utils() {}
@@ -104,6 +105,8 @@
     // }}}
     // {{{ headers
 
+    // {{{ BufferLoader headers
+
     /**
      * 溜め込んでいるバッファを順次読み込み
      * @param {string}
@@ -114,6 +117,10 @@
      * バッファの読み込み開始
      */
     BufferLoader.prototype.load = BufferLoader_load;
+
+    // }}}
+    // {{{ AudioManager headers
+
     /**
      * 
      */
@@ -200,6 +207,16 @@
      */
     AudioManager.prototype.setOrientation = AudioManager_setOrientation;
     /**
+     * とりあえず指定したHzの単音を鳴らすだけの処理
+     * 再生後３秒後に自動で停止
+     * @param {number} val
+     */
+    AudioManager.prototype.createSampleTone = AudioManager_createSampleTone;
+
+    // }}}
+    // {{{ Utils headers
+
+    /**
      * 配列SUM処理
      * @param {number[]}
      */
@@ -225,6 +242,8 @@
      * @return {object}
      */
     Utils.prototype.applyIf = Utils_applyIf;
+
+    // }}}
 
     // }}}
     // {{{ implementations
@@ -831,6 +850,30 @@
             }
         }
     }//}}}
+    /**
+     * とりあえず指定したHzの単音を鳴らすだけの処理
+     * 再生後３秒後に自動で停止
+     * @param {number} val
+     * @param {number} vol
+     * @param {number} time
+     */
+    function AudioManager_createSampleTone(val, vol, time) {
+        var me  = this,
+            osc = AudioManager__createOscillator.apply(me, [val]),
+            gin = AudioManager__createGain.apply(me, [{gain:'sample'}]);
+
+        vol = vol  || 0.05;
+        time= time || 1000;
+
+        osc.connect(gin);
+        gin.connect(me.context.destination);
+        gin.gain.value = vol;
+        osc.start();
+
+        setTimeout(function() {
+            osc.stop();
+        }, time);
+    }
     /**
      *
      * @param {number[]}
