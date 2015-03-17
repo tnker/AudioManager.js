@@ -315,15 +315,10 @@
         an.fftSize = me.fftSize;
 
         me.sources.mic = me.context.createMediaStreamSource(s);
-        me.analysers.mic= {
-            a: an,
-            d: new Uint8Array(me.fftSize/2),
-            getByteFrequencyData: function() {
-                this.a.getByteFrequencyData(this.d);
-                return this.d;
-            }
-        };
-        me.sources.mic.connect(an);
+        me.analysers.mic= AudioManager__createAnalyser.apply(me, [{
+            name: 'mic'
+        }]);
+        me.sources.mic.connect(me.analysers.mic.a);
 
         if (typeof me.onMicInitSuccess === 'function') {
             me.onMicInitSuccess();
@@ -494,10 +489,26 @@
             analyser.fftSize  = info.fftSize || me.fftSize;
             return {
                 a: analyser,
-                d: new Uint8Array((info.fftSize || me.fftSize) / 2),
-                getByteFrequencyData: function() {
-                    this.a.getByteFrequencyData(this.d);
-                    return this.d;
+                getByteTimeDomainData: function(size) {
+                    var analyser= this.a,
+                        count   = analyser.frequencyBinCount,
+                        data    = new Uint8Array(size || count);
+                    analyser.getByteTimeDomainData(data);
+                    return data;
+                },
+                getByteFrequencyData: function(size) {
+                    var analyser= this.a,
+                        count   = analyser.frequencyBinCount,
+                        data    = new Uint8Array(size || count);
+                    analyser.getByteFrequencyData(data);
+                    return data;
+                },
+                getFloatFrequencyData: function(size) {
+                    var analyser= this.a,
+                        count   = analyser.frequencyBinCount,
+                        data    = new Uint8Array(size || count);
+                    analyser.getFloatFrequencyData(data);
+                    return data;
                 }
             };
         } else {
