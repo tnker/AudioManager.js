@@ -29,7 +29,7 @@ Web Audio APIでとりあえず遊んでみたい人たち向け簡易ライブ�
 	- onEnterFrame（後記）を自動的に開始するかどうか
 		- type: boolean
 		- default: true
-- ffSize
+- fftSize
 	- 入力音声から波形データを取得する際のレンジ
 	- 基本的には [32, 64, 128, 256, 512, 1024, 2048] のいずれか
 		- type: int
@@ -109,7 +109,7 @@ Keyに対してValueをオブジェクトリテラルで設定することで、
 			path	: './jaz.mp3',
 			loop	: false,
 			sound	: true,
-			ffSize 	: 256
+			fftSize 	: 256
 		},
 		pop	: {
 			path	: './mp3.mp3'
@@ -130,7 +130,7 @@ Keyに対してValueをオブジェクトリテラルで設定することで、
 	- 再生時スピーカーから音を鳴らさない（波形データのみ欲しい場合に利用）
 		- type: boolean
 		- default: false
-- ffSize
+- fftSize
 	- 入力音声から波形データを取得する際のレンジ
 	- こちらを指定した場合はAudioManagerのコンストラクタ時に指定した値よりも優先されます
 		- type: int

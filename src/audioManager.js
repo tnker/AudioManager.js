@@ -88,7 +88,7 @@
         this.panners            = {};
         this.state              = {};
         this.fps                = c.fps     || 60;
-        this.ffSize             = c.ffSize  || 2048;
+        this.fftSize            = c.fftSize || 2048;
         this.onEnterFrame       = c.onEnterFrame     || emptyFn;
         this.onInit             = c.onInit           || emptyFn;
         this.onMicInitSuccess   = c.onMicInitSuccess || emptyFn;
@@ -312,12 +312,12 @@
         var me = this,
             an = me.context.createAnalyser();
 
-        an.ffSize = me.ffSize;
+        an.fftSize = me.fftSize;
 
         me.sources.mic = me.context.createMediaStreamSource(s);
         me.analysers.mic= {
             a: an,
-            d: new Uint8Array(me.ffSize/2),
+            d: new Uint8Array(me.fftSize/2),
             getByteFrequencyData: function() {
                 this.a.getByteFrequencyData(this.d);
                 return this.d;
@@ -491,10 +491,10 @@
             analyser;
         if (me.analysers[info.name] === undefined) {
             analyser         = me.context.createAnalyser();
-            analyser.ffSize  = info.ffSize || me.ffSize;
+            analyser.fftSize  = info.fftSize || me.fftSize;
             return {
                 a: analyser,
-                d: new Uint8Array((info.ffSize || me.ffSize) / 2),
+                d: new Uint8Array((info.fftSize || me.fftSize) / 2),
                 getByteFrequencyData: function() {
                     this.a.getByteFrequencyData(this.d);
                     return this.d;
