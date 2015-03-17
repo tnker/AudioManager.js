@@ -554,6 +554,22 @@
         }
     }//}}}
     /**
+     *
+     * @private
+     * @param {number} val
+     * @return
+     */
+    function AudioManager__createOscillator(val) {//{{{
+        var me = this,
+            oscillator = me.context.createOscillator();
+
+        oscillator.type = 'sawtooth';
+        oscillator.detune.value = 0;
+        oscillator.frequency.value = val;
+
+        return oscillator;
+    }//}}}
+    /**
      * 毎フレーム処理開始処理
      */
     function AudioManager_startLoop() {//{{{
