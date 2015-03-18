@@ -87,6 +87,7 @@
         this.analysers          = {};
         this.gains              = {};
         this.panners            = {};
+        this.oscillators        = {};
         this.state              = {};
         this.fps                = c.fps     || 60;
         this.fftSize            = c.fftSize || 2048;
@@ -248,6 +249,8 @@
     // }}}
     // {{{ implementations
 
+    // {{{ BufferLoader implementations
+
     /**
      *
      * @param url
@@ -263,7 +266,7 @@
         request.onload = function() {
             me.context.decodeAudioData(
                 request.response,
-                function success(buffer) {
+                function(buffer) {
                     if (!buffer) {
                         global.alert('error decoding file data: ' + url);
                         return;
@@ -273,7 +276,7 @@
                         me.onload(me.bufferList);
                     }
                 },
-                function error(error) {
+                function(error) {
                     console.error('decodeAudioData error', error);
                 }
             );
@@ -304,10 +307,10 @@
                 {
                     audio: true
                 },
-                function success(s) {
+                function(s) {
                     me.micInitSuccess(s);
                 },
-                function error(e) {
+                function(e) {
                     me.micInitFaild(e);
                 }
             );
@@ -323,6 +326,10 @@
 
         return me;
     }//}}}
+
+    // }}}
+    // {{{ AudioManager implementations
+
     /**
      * マイク入力許可後初期化処理
      * @param s
@@ -399,7 +406,7 @@
         me.buffers = new BufferLoader(
             me.context,
             ls,
-            function success() {
+            function() {
                 AudioManager__loaded.apply(me, arguments);
             }
         );
@@ -510,7 +517,7 @@
                 a: analyser,
                 getByteTimeDomainData: function(size) {
                     var analyser= this.a,
-                        count   = analyser.frequencyBinCount,
+                        count   = analyser.fftSize,
                         data    = new Uint8Array(size || count);
                     analyser.getByteTimeDomainData(data);
                     return data;
@@ -525,7 +532,7 @@
                 getFloatFrequencyData: function(size) {
                     var analyser= this.a,
                         count   = analyser.frequencyBinCount,
-                        data    = new Uint8Array(size || count);
+                        data    = new Uint32Array(size || count);
                     analyser.getFloatFrequencyData(data);
                     return data;
                 }
@@ -575,16 +582,16 @@
     /**
      *
      * @private
-     * @param {number} val
+     * @param {object} info
      * @return
      */
-    function AudioManager__createOscillator(val) {//{{{
+    function AudioManager__createOscillator(info) {//{{{
         var me = this,
             oscillator = me.context.createOscillator();
 
-        oscillator.type = 'sawtooth';
-        oscillator.detune.value = 0;
-        oscillator.frequency.value = val;
+        oscillator.type             = info.type;
+        oscillator.detune.value     = 0;
+        oscillator.frequency.value  = info.frequency || 1000;
 
         return oscillator;
     }//}}}
@@ -852,28 +859,39 @@
     }//}}}
     /**
      * とりあえず指定したHzの単音を鳴らすだけの処理
-     * 再生後３秒後に自動で停止
-     * @param {number} val
-     * @param {number} vol
-     * @param {number} time
+     * @param {object} info
      */
-    function AudioManager_createSampleTone(val, vol, time) {
-        var me  = this,
-            osc = AudioManager__createOscillator.apply(me, [val]),
-            gin = AudioManager__createGain.apply(me, [{gain:'sample'}]);
+    function AudioManager_createSampleTone(info) {//{{{
+        var me = this,
+            ut = global.Utils,
+            gain,
+            oscillator,
+            analyser;
 
-        vol = vol  || 0.05;
-        time= time || 1000;
+        info = ut.applyIf(info || {}, {
+            volume  : 0.05,
+            type    : 'sine'
+        });
 
-        osc.connect(gin);
-        gin.connect(me.context.destination);
-        gin.gain.value = vol;
-        osc.start();
+        gain        = AudioManager__createGain.apply(me, [info]);
+        oscillator  = AudioManager__createOscillator.apply(me, [info]);
+        analyser    = AudioManager__createAnalyser.apply(me, [info]);
 
-        setTimeout(function() {
-            osc.stop();
-        }, time);
-    }
+        me.analysers[info.name] = analyser;
+        me.gains[info.gain]     = gain;
+
+        gain.gain.value = info.volume;
+
+        oscillator.connect(gain);
+        oscillator.connect(analyser.a);
+        gain.connect(me.context.destination);
+
+        return oscillator;
+    }//}}}
+
+    // }}}
+    // {{{ Utils implementations
+
     /**
      *
      * @param {number[]}
@@ -943,6 +961,8 @@
         }
         return object;
     }//}}}
+
+    // }}}
 
     // }}}
     // {{{ exports
