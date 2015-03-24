@@ -26,7 +26,9 @@
     // {{{ const variables
 
     var MAX_VOLUME = 1,
-        MIN_VOLUME = 0;
+        MIN_VOLUME = 0,
+        DEFAULT_FPS= 60,
+        DEFAULT_FFT= 2048;
 
     // }}}
     // {{{ audio api fallback
@@ -89,9 +91,10 @@
         this.panners            = {};
         this.oscillators        = {};
         this.state              = {};
-        this.fps                = c.fps     || 60;
-        this.fftSize            = c.fftSize || 2048;
+        this.fps                = c.fps     || DEFAULT_FPS;
+        this.fftSize            = c.fftSize || DEFAULT_FFT;
         this.onEnterFrame       = c.onEnterFrame     || emptyFn;
+        this.onProcess          = c.onProcess        || emptyFn;
         this.onInit             = c.onInit           || emptyFn;
         this.onMicInitSuccess   = c.onMicInitSuccess || emptyFn;
         this.onMicInitFaild     = c.onMicInitFaild   || emptyFn;
@@ -209,7 +212,6 @@
     AudioManager.prototype.setOrientation = AudioManager_setOrientation;
     /**
      * とりあえず指定したHzの単音を鳴らすだけの処理
-     * 再生後３秒後に自動で停止
      * @param {number} val
      */
     AudioManager.prototype.createSampleTone = AudioManager_createSampleTone;
@@ -243,6 +245,12 @@
      * @return {object}
      */
     Utils.prototype.applyIf = Utils_applyIf;
+    /**
+     * 超簡易型判定処理用
+     * @param {any} v
+     * @return {string}
+     */
+    Utils.prototype.is = Utils_is;
 
     // }}}
 
@@ -298,7 +306,8 @@
      * 初期化処理
      */
     function AudioManager_init() {//{{{
-        var me = this;
+        var me = this,
+            ut = global.Utils;
 
         me.context     = new global.AudioContext();
 
@@ -315,7 +324,7 @@
                 }
             );
         } else {
-            if (typeof me.onInit === 'function') {
+            if (ut.is(me.onInit) === 'function') {
                 me.onInit();
             }
             if (me.autoLooop) {
@@ -336,7 +345,8 @@
      */
     function AudioManager_micInitSuccess(s) {//{{{
         var me = this,
-            an = me.context.createAnalyser();
+            an = me.context.createAnalyser(),
+            ut = global.Utils;
 
         an.fftSize = me.fftSize;
 
@@ -346,7 +356,7 @@
         }]);
         me.sources.mic.connect(me.analysers.mic.a);
 
-        if (typeof me.onMicInitSuccess === 'function') {
+        if (ut.is(me.onMicInitSuccess) === 'function') {
             me.onMicInitSuccess();
         }
 
@@ -362,11 +372,12 @@
      * @param e
      */
     function AudioManager_micInitFaild(e) {//{{{
-        var me = this;
+        var me = this,
+            ut = global.Utils;
 
         console.log('reject', e);
 
-        if (typeof me.onMicInitFaild === 'function') {
+        if (ut.is(me.onMicInitFaild) === 'function') {
             me.onMicInitFaild();
         }
     }//}}}
@@ -380,13 +391,13 @@
             ut = global.Utils,
             ks;
 
-        if (!(sources instanceof Array)) {
+        if (ut.is(sources) !== 'array') {
             me.sources  = {};
             me.analysers= {};
             ls = ut.values(sources);
             ks = Object.keys(sources);
             for (var i = 0; i < ks.length; i++) {
-                if (typeof ls[i] === 'object') {
+                if (ut.is(ls[i]) === 'object') {
                     me.sources[i] = ut.applyIf(ls[i], {
                         name    : ks[i],
                         loop    : true,
@@ -426,7 +437,7 @@
                 s = true,
                 n = '';
 
-            if (typeof o === 'object') {
+            if (ut.is(o) === 'object') {
                 s = o.sound;
                 n = o.name;
             } else {
@@ -443,21 +454,21 @@
             // create analyser source
             me.analysers[n] = AudioManager__createAnalyser.apply(me, [o]);
             // create gain source
-            if (o.gain || typeof o.volume === 'number') {
+            if (o.gain || ut.is(o.volume) === 'number') {
                 me.gains[n] = AudioManager__createGain.apply(me, [o]);
             }
             // create panner source
             if (o.panner) {
                 me.panners[n] = AudioManager__createPanner.apply(me, [o]);
             }
-            if (!(me.sources instanceof Array)) {
+            if (ut.is(me.sources) !== 'array') {
                 delete me.sources[i];
             }
         }
 
         me.isReady = true;
 
-        if (typeof me.onLoaded === 'function') {
+        if (ut.is(me.onLoaded) === 'function') {
             me.onLoaded();
         }
     }//}}}
@@ -508,9 +519,10 @@
      * @param {object} info
      */
     function AudioManager__createAnalyser(info) {//{{{
-        var me = this,
+        var me      = this,
+            name    = info.name,
             analyser;
-        if (me.analysers[info.name] === undefined) {
+        if (me.analysers[name] === undefined) {
             analyser         = me.context.createAnalyser();
             analyser.fftSize  = info.fftSize || me.fftSize;
             return {
@@ -538,13 +550,15 @@
                 }
             };
         } else {
-            return me.analysers[info.name];
+            return me.analysers[name];
         }
     }//}}}
     /**
+     * TODO: オブジェクトリテラルでの生成処理
      *
      * @private
      * @param {object} info
+     * @return
      */
     function AudioManager__createGain(info) {//{{{
         var me = this,
@@ -559,9 +573,11 @@
         }
     }//}}}
     /**
+     * TODO: オブジェクトリテラルでの生成処理
      *
      * @private
      * @param {object} info
+     * @return
      */
     function AudioManager__createPanner(info) {//{{{
         var me = this,
@@ -580,6 +596,7 @@
         }
     }//}}}
     /**
+     * TODO: オブジェクトリテラルでの生成処理
      *
      * @private
      * @param {object} info
@@ -595,6 +612,40 @@
 
         return oscillator;
     }//}}}
+    /**
+     * ScriptProcessor生成処理
+     * @private
+     * @param {object} info
+     * @return
+     */
+    function AudioManager__createScriptProcessor(info) {
+        var me      = this,
+            ut      = global.Utils,
+            param   = info.sproc,
+            processor;
+
+        if (ut.is(info) === 'object') {
+            if (param.bufferSize) {
+                processor = me.context.createScriptProcessor(param.bufferSize);
+            }
+            if (param.filter) {
+                // FilterNodeとの接続処理
+            }
+            if (param.oscillator) {
+                // OscillatorNodeとの接続処理
+            }
+        } else {
+            console.warn('create script processor error');
+        }
+    }
+    /**
+     * Filter生成処理
+     * @private
+     * @param {object} info
+     * @return
+     */
+    function AudioManager__createFilter(info) {
+    }
     /**
      * 毎フレーム処理開始処理
      */
@@ -616,10 +667,11 @@
      * 毎フレーム処理
      */
     function AudioManager_enterFrame() {//{{{
-        var me = this;
+        var me = this,
+            ut = global.Utils;
 
         if (me.isLoop && me.isReady) {
-            if (typeof me.onEnterFrame === 'function') {
+            if (ut.is(me.onEnterFrame) === 'function') {
                 me.onEnterFrame();
             }
             if (me.fps === 60) {
@@ -877,8 +929,9 @@
         oscillator  = AudioManager__createOscillator.apply(me, [info]);
         analyser    = AudioManager__createAnalyser.apply(me, [info]);
 
-        me.analysers[info.name] = analyser;
-        me.gains[info.gain]     = gain;
+        me.oscillators[info.name]   = oscillator;
+        me.analysers[info.name]     = analyser;
+        me.gains[info.gain]         = gain;
 
         gain.gain.value = info.volume;
 
@@ -925,10 +978,12 @@
      * @return {object}
      */
     function Utils_apply(object, config, defaults) {//{{{
+        var ut = global.Utils;
+
         if (defaults) {
             Ext.apply(object, defaults);
         }
-        if (object && config && typeof config === 'object') {
+        if (object && config && ut.is(config) === 'object') {
             var i, j, k;
             for (i in config) {
                 object[i] = config[i];
@@ -960,6 +1015,26 @@
             }
         }
         return object;
+    }//}}}
+    /**
+     * 超簡易型判定処理用
+     * @param {any} v
+     * @return {string}
+     */
+    function Utils_is(v) {//{{{
+        var type = (global.toString.call(v)).match(/[a-zA-Z]+/g)[1];
+        if (type !== undefined) {
+            type = type.toLowerCase();
+            if (type === 'number') {
+                if (global.isNaN(v)) {
+                    type = v;
+                }
+            }
+            if (type === 'window' && v !== global) {
+                type = v;
+            }
+        }
+        return type;
     }//}}}
 
     // }}}
